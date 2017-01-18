@@ -9,7 +9,6 @@ mysql_db.connect()
 
 BASIC_INTERVAL = 3
 API_KEY = os.environ['RIOT_API_KEY']
-proSummoners = ProSummoner.select()
 
 class RiotLimitError(Exception):
     pass
@@ -166,23 +165,30 @@ def updateCheckTime(proSummoner, newTime):
     else:
         print('Error al actualizar el tiempo del invocador!')
 
-for proSummoner in proSummoners:
-    try:
-        matches = getMatchesList(proSummoner)
-        time.sleep(BASIC_INTERVAL)
-        for match in matches:
-            try:
-                matchData = getMatchData(match)
+def init():
+    print('Iniciando recollecion de datos!')
+    proSummoners = ProSummoner.select()
+    for proSummoner in proSummoners:
+        try:
+            matches = getMatchesList(proSummoner)
+            time.sleep(BASIC_INTERVAL)
+            for match in matches:
+                try:
+                    matchData = getMatchData(match)
 
-                if matchData['matchDuration'] < 600:
-                    continue
+                    if matchData['matchDuration'] < 600:
+                        continue
 
-                proBuild = getProBuild(matchData, proSummoner)
-                if saveProBuild(proBuild):
-                    updateCheckTime(proSummoner, matchData['matchCreation'])
-                time.sleep(BASIC_INTERVAL)
-            except Exception as e:
-                time.sleep(BASIC_INTERVAL)
-    except Exception as e:
-        traceback.print_exc()
-        time.sleep(BASIC_INTERVAL)
+                    proBuild = getProBuild(matchData, proSummoner)
+                    if saveProBuild(proBuild):
+                        updateCheckTime(proSummoner, matchData['matchCreation'])
+                    time.sleep(BASIC_INTERVAL)
+                except Exception as e:
+                    time.sleep(BASIC_INTERVAL)
+        except Exception as e:
+            traceback.print_exc()
+            time.sleep(BASIC_INTERVAL)
+
+    init()
+
+init()
