@@ -1,19 +1,14 @@
+import os, requests, time, traceback, json
 from models import mysql_db, ProSummoner, ProBuild
 from pydash.collections import find as _find
-from pydash.arrays import drop_right_while as _drop_right_while
-import os
-import requests
-import time
-import pprint
-import traceback
-import json
+from pydash.arrays import drop_right_while as _drop_right_while, sort as _sort
 from datetime import datetime
+from retrying import retry
 
-pp = pprint.PrettyPrinter(indent=1)
 mysql_db.connect()
 
+BASIC_INTERVAL = 3
 API_KEY = os.environ['RIOT_API_KEY']
-BASIC_INTERVAL = 5
 proSummoners = ProSummoner.select()
 
 class RiotLimitError(Exception):
@@ -22,7 +17,10 @@ class RiotLimitError(Exception):
 class RiotServerError(Exception):
     pass
 
+def riotRetryFilter(exception):
+    return isinstance(exception, RiotLimitError)
 
+@retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
 def getMatchData(match):
     print('Obteniendo datos para la partida #' + str(match['matchId']))
 
@@ -30,21 +28,22 @@ def getMatchData(match):
     response = requests.get(url, params = { "api_key": API_KEY, "includeTimeline": True })
 
     if response.status_code == 200:
-        print('Fetching matchData Sucess!')
+        print('Datos de la partida obtenidos correctamente!')
         matchData = response.json()
 
         return matchData
     elif response.status_code == 429:
         retryAfter = int(response.headers['retry-after']) + 5
-        print('Limit reached, repeating after: ' + str(retryAfter) + ' seconds')
+        print('Limite de consultas alcanzado, repitiendo en: ' + str(retryAfter) + ' seconds')
         time.sleep(retryAfter)
 
         raise RiotLimitError
     else:
-        print('Riot server error')
+        print('Error en los servidores de Riot')
         raise RiotServerError
 
 
+@retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
 def getMatchesList(proSummoner):
     print('Obteniendo lista de juegos para el proSummoner #' + str(proSummoner.summonerId))
 
@@ -52,9 +51,10 @@ def getMatchesList(proSummoner):
     response = requests.get(url, params = { "api_key": API_KEY, "beginTime": proSummoner.lastCheck + 1 })
 
     if response.status_code == 200:
+        print('Lista de juegos obtenida correctamente')
         matches = response.json()['matches']
-        print(str(len(matches)) + ' Matches found')
-        sorted(matches, key = lambda m: m['timestamp'], reverse = True)
+        print(str(len(matches)) + ' Juegos encontrados')
+        matches = _sort(matches, key = lambda m: m['timestamp'])
 
         return matches
     elif response.status_code == 429:
@@ -63,12 +63,12 @@ def getMatchesList(proSummoner):
         else:
             retryAfter = BASIC_INTERVAL
 
-        print('Limit reached, repeating after: ' + str(retryAfter) + ' seconds')
+        print('Limite de consultas alcanzado, repitiendo en: ' + str(retryAfter) + ' seconds')
         time.sleep(retryAfter)
 
         raise RiotLimitError
     else:
-        print('Riot server error')
+        print('Error en los servidroes de Riot')
         raise RiotServerError
 
 def getProBuild(matchData, proSummoner):
@@ -161,8 +161,10 @@ def updateCheckTime(proSummoner, newTime):
     print('Actualizando el tiempo para el proSummoner #' + str(proSummoner.id) + ' a: ' + str(newTime))
     proSummoner.lastCheck = newTime
     proSummoner.updated_at = datetime.utcnow()
-    proSummoner.save()
-    print('Tiempo actualizado!')
+    if proSummoner.save() >= 0:
+        print('Tiempo actualizado correctamente!')
+    else:
+        print('Error al actualizar el tiempo del invocador!')
 
 for proSummoner in proSummoners:
     try:
@@ -180,7 +182,6 @@ for proSummoner in proSummoners:
                     updateCheckTime(proSummoner, matchData['matchCreation'])
                 time.sleep(BASIC_INTERVAL)
             except Exception as e:
-                traceback.print_exc()
                 time.sleep(BASIC_INTERVAL)
     except Exception as e:
         traceback.print_exc()
