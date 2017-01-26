@@ -8,7 +8,7 @@ from retrying import retry
 
 mysql_db.connect()
 
-BASIC_INTERVAL = 2.5
+BASIC_INTERVAL = float(input('Intervalo en segundos: '))
 API_KEY = os.environ['RIOT_API_KEY']
 
 class RiotLimitError(Exception):
