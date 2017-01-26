@@ -1,4 +1,5 @@
 import os, requests, time, traceback, json
+import re
 from models import mysql_db, ProSummoner, ProBuild
 from pydash.collections import find as _find
 from pydash.arrays import drop_right_while as _drop_right_while, sort as _sort
@@ -7,7 +8,7 @@ from retrying import retry
 
 mysql_db.connect()
 
-BASIC_INTERVAL = 3
+BASIC_INTERVAL = 2.5
 API_KEY = os.environ['RIOT_API_KEY']
 
 class RiotLimitError(Exception):
@@ -15,6 +16,15 @@ class RiotLimitError(Exception):
 
 class RiotServerError(Exception):
     pass
+
+class URID:
+    @staticmethod
+    def getId(urid):
+        return int(re.sub(r'[A-Z]+_', '', urid))
+
+    @staticmethod
+    def getRegion(urid):
+        return re.search('[A-Z]+', urid).group(0)
 
 def riotRetryFilter(exception):
     return isinstance(exception, RiotLimitError)
@@ -32,7 +42,7 @@ def getMatchData(match):
 
         return matchData
     elif response.status_code == 429:
-        retryAfter = int(response.headers['retry-after']) + 5
+        retryAfter = int(response.headers['retry-after']) + BASIC_INTERVAL
         print('Limite de consultas alcanzado, repitiendo en: ' + str(retryAfter) + ' seconds')
         time.sleep(retryAfter)
 
@@ -44,9 +54,12 @@ def getMatchData(match):
 
 @retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
 def getMatchesList(proSummoner):
-    print('Obteniendo lista de juegos para el proSummoner #' + str(proSummoner.summonerId))
+    sumId = URID.getId(proSummoner.summonerUrid)
+    region = URID.getRegion(proSummoner.summonerUrid)
 
-    url = 'https://' + proSummoner.region + '.api.pvp.net/api/lol/' + proSummoner.region + '/v2.2/matchlist/by-summoner/' + str(proSummoner.summonerId)
+    print('Obteniendo lista de juegos para el proSummoner #' + proSummoner.summonerUrid)
+
+    url = 'https://' + region.lower() + '.api.pvp.net/api/lol/' + region.lower() + '/v2.2/matchlist/by-summoner/' + str(sumId)
     response = requests.get(url, params = { "api_key": API_KEY, "beginTime": proSummoner.lastCheck + 1 })
 
     if response.status_code == 200:
@@ -72,14 +85,15 @@ def getMatchesList(proSummoner):
 
 def getProBuild(matchData, proSummoner):
     print('Realizando el parseo de la build')
+    summonerId = URID.getId(proSummoner.summonerUrid)
     proBuild = {}
-    participantId = _find(matchData['participantIdentities'], lambda identity: identity['player']['summonerId'] == proSummoner.summonerId)['participantId']
+    participantId = _find(matchData['participantIdentities'], lambda identity: identity['player']['summonerId'] == summonerId)['participantId']
     participantData = _find(matchData['participants'], lambda participant: participant['participantId'] == participantId)
 
     proBuild['matchId'] = matchData['matchId']
     proBuild['matchCreation'] = matchData['matchCreation']
     proBuild['proSummonerId'] = proSummoner.id
-    proBuild['region'] = matchData['region'].lower()
+    proBuild['region'] = URID.getRegion(proSummoner.summonerUrid)
     proBuild['spell1Id'] = participantData['spell1Id']
     proBuild['spell2Id'] = participantData['spell2Id']
     proBuild['championId'] = participantData['championId']

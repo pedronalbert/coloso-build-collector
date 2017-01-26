@@ -1,6 +1,7 @@
+import os
 from peewee import MySQLDatabase, Model, IntegerField, CharField, DateTimeField, TextField
 
-mysql_db = MySQLDatabase(host = 'localhost', user = 'root', passwd = '123456', database='cena_rails')
+mysql_db = MySQLDatabase(host = 'localhost', user = 'root', passwd = os.environ['COLOSO_DB_PASSWORD'], database='coloso')
 
 class BaseModel(Model):
     class Meta:
@@ -8,8 +9,7 @@ class BaseModel(Model):
 
 class ProSummoner(BaseModel):
     id = IntegerField()
-    summonerId = IntegerField()
-    region = CharField()
+    summonerUrid = TextField()
     lastCheck = IntegerField()
     pro_player_id = IntegerField()
     created_at = DateTimeField()
