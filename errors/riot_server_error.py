@@ -1,0 +1,2 @@
+class RiotServerError(Exception):
+    pass

@@ -1,31 +1,30 @@
 import os, requests, time, traceback, json
-import re
-from models import mysql_db, ProSummoner, ProBuild
 from pydash.collections import find as _find
 from pydash.arrays import drop_right_while as _drop_right_while, sort as _sort
 from datetime import datetime
 from retrying import retry
 
+from models import mysql_db, ProSummoner, ProBuild
+from errors import RiotLimitError, RiotServerError
+from utils import URID
+
 mysql_db.connect()
 
+regionNumber = int(input('Seleccionar Region: 1) NA  2) EUW  3) BR  4) OCE  5) KR'))
 BASIC_INTERVAL = float(input('Interval (segundos): '))
-REGION = input('Region: ').upper()
 API_KEY = os.environ['RIOT_API_KEY']
 
-class RiotLimitError(Exception):
-    pass
+if regionNumber == 1:
+    REGION = 'NA'
+elif regionNumber == 2:
+    REGION = 'EUW'
+elif regionNumber == 3:
+    REGION = 'BR'
+elif regionNumber == 4:
+    REGION = 'OCE'
+elif regionNumber == 5:
+    REGION = 'KR'
 
-class RiotServerError(Exception):
-    pass
-
-class URID:
-    @staticmethod
-    def getId(urid):
-        return int(re.sub(r'[A-Z]+_', '', urid))
-
-    @staticmethod
-    def getRegion(urid):
-        return re.search('[A-Z]+', urid).group(0)
 
 def riotRetryFilter(exception):
     return isinstance(exception, RiotLimitError)

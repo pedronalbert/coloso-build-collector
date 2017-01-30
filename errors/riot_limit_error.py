@@ -1,0 +1,2 @@
+class RiotLimitError(Exception):
+    pass
