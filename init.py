@@ -8,7 +8,7 @@ from retrying import retry
 
 mysql_db.connect()
 
-BASIC_INTERVAL = 1
+BASIC_INTERVAL = float(input('Interval (segundos): '))
 REGION = input('Region: ').upper()
 API_KEY = os.environ['RIOT_API_KEY']
 
