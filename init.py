@@ -176,6 +176,7 @@ def saveProBuild(proBuild):
 def updateCheckTime(proSummoner, newTime):
     proSummoner.lastCheck = newTime
     proSummoner.updated_at = datetime.utcnow()
+    proSummoner.save()
 
 def init():
     proSummoners = ProSummoner.select().where(ProSummoner.summonerUrid.regexp(REGION))
