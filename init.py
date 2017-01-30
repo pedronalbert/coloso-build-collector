@@ -8,7 +8,8 @@ from retrying import retry
 
 mysql_db.connect()
 
-BASIC_INTERVAL = float(input('Intervalo en segundos: '))
+BASIC_INTERVAL = 1
+REGION = input('Region: ').upper()
 API_KEY = os.environ['RIOT_API_KEY']
 
 class RiotLimitError(Exception):
@@ -37,7 +38,6 @@ def getMatchData(match):
     response = requests.get(url, params = { "api_key": API_KEY, "includeTimeline": True })
 
     if response.status_code == 200:
-        print('Datos de la partida obtenidos correctamente!')
         matchData = response.json()
 
         return matchData
@@ -63,9 +63,14 @@ def getMatchesList(proSummoner):
     response = requests.get(url, params = { "api_key": API_KEY, "beginTime": proSummoner.lastCheck + 1 })
 
     if response.status_code == 200:
-        print('Lista de juegos obtenida correctamente')
-        matches = response.json()['matches']
-        print(str(len(matches)) + ' Juegos encontrados')
+        jsonResponse = response.json()
+
+        if 'matches' in jsonResponse:
+            matches = jsonResponse['matches']
+        else:
+            matches = []
+
+        print(str(len(matches)) + ' Juegos encontrados para el invocador #' + proSummoner.summonerUrid)
         matches = _sort(matches, key = lambda m: m['timestamp'])
 
         return matches
@@ -84,7 +89,6 @@ def getMatchesList(proSummoner):
         raise RiotServerError
 
 def getProBuild(matchData, proSummoner):
-    print('Realizando el parseo de la build')
     summonerId = URID.getId(proSummoner.summonerUrid)
     proBuild = {}
     participantId = _find(matchData['participantIdentities'], lambda identity: identity['player']['summonerId'] == summonerId)['participantId']
@@ -164,24 +168,23 @@ def saveProBuild(proBuild):
     )
 
     if query.save() > 0:
-        print('Build Guardada exitosamente!')
         return True
     else:
         print('Error al guardar la build en la base de datos!')
         return False
 
 def updateCheckTime(proSummoner, newTime):
-    print('Actualizando el tiempo para el proSummoner #' + str(proSummoner.id) + ' a: ' + str(newTime))
     proSummoner.lastCheck = newTime
     proSummoner.updated_at = datetime.utcnow()
-    if proSummoner.save() >= 0:
-        print('Tiempo actualizado correctamente!')
-    else:
-        print('Error al actualizar el tiempo del invocador!')
 
 def init():
-    print('Iniciando recollecion de datos!')
-    proSummoners = ProSummoner.select()
+    proSummoners = ProSummoner.select().where(ProSummoner.summonerUrid.regexp(REGION))
+
+    if len(proSummoners) <= 0:
+        print('No hay summoners en esta region')
+        return
+
+    print('Iniciando recoleccion de builds')
     for proSummoner in proSummoners:
         try:
             matches = getMatchesList(proSummoner)
