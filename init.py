@@ -178,34 +178,33 @@ def updateCheckTime(proSummoner, newTime):
     proSummoner.save()
 
 def init():
-    proSummoners = ProSummoner.select().where(ProSummoner.summonerUrid.regexp(REGION))
+    while True:
+        proSummoners = ProSummoner.select().where(ProSummoner.summonerUrid.regexp(REGION))
 
-    if len(proSummoners) <= 0:
-        print('No hay summoners en esta region')
-        return
+        if len(proSummoners) <= 0:
+            print('No hay summoners en esta region')
+            return
 
-    print('Iniciando recoleccion de builds')
-    for proSummoner in proSummoners:
-        try:
-            matches = getMatchesList(proSummoner)
-            time.sleep(BASIC_INTERVAL)
-            for match in matches:
-                try:
-                    matchData = getMatchData(match)
+        print('Iniciando recoleccion de builds')
+        for proSummoner in proSummoners:
+            try:
+                matches = getMatchesList(proSummoner)
+                time.sleep(BASIC_INTERVAL)
+                for match in matches:
+                    try:
+                        matchData = getMatchData(match)
 
-                    if matchData['matchDuration'] < 600:
-                        continue
+                        if matchData['matchDuration'] < 600:
+                            continue
 
-                    proBuild = getProBuild(matchData, proSummoner)
-                    if saveProBuild(proBuild):
-                        updateCheckTime(proSummoner, matchData['matchCreation'])
-                    time.sleep(BASIC_INTERVAL)
-                except Exception as e:
-                    time.sleep(BASIC_INTERVAL)
-        except Exception as e:
-            traceback.print_exc()
-            time.sleep(BASIC_INTERVAL)
-
-    init()
+                        proBuild = getProBuild(matchData, proSummoner)
+                        if saveProBuild(proBuild):
+                            updateCheckTime(proSummoner, matchData['matchCreation'])
+                        time.sleep(BASIC_INTERVAL)
+                    except Exception as e:
+                        time.sleep(BASIC_INTERVAL)
+            except Exception as e:
+                traceback.print_exc()
+                time.sleep(BASIC_INTERVAL)
 
 init()
