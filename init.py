@@ -1,17 +1,15 @@
-import logging
+import logging, os
 from threading import Thread
-from pick import pick
 
 from src.collector import Collector
 from models import mysql_db
 
 mysql_db.connect()
 
-logLevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 regions = ['NA', 'EUW', 'BR', 'OCE', 'KR']
 
-logLevel, logLevelIndex = pick(logLevels, 'Log Level')
-interval = float(input('Interval (segundos): '))
+logLevel = os.environ['COLLECTOR_LOG_LEVEL']
+interval = float(os.environ['COLLECTOR_INTERVAL_SECONDS'])
 
 logging.basicConfig(level = getattr(logging, logLevel))
 

@@ -1,0 +1,5 @@
+peewee
+pydash
+retrying
+requests
+PyMySQL
