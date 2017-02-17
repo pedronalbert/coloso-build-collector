@@ -8,8 +8,8 @@ mysql_db.connect()
 
 regions = ['NA', 'EUW', 'BR', 'OCE', 'KR']
 
-logLevel = os.environ['COLLECTOR_LOG_LEVEL']
-interval = float(os.environ['COLLECTOR_INTERVAL_SECONDS'])
+logLevel = os.environ['COLOSO_COLLECTOR_LOG_LEVEL']
+interval = float(os.environ['COLOSO_COLLECTOR_INTERVAL_SECONDS'])
 
 logging.basicConfig(level = getattr(logging, logLevel))
 
