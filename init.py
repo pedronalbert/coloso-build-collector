@@ -1,5 +1,7 @@
 import logging, os
 from threading import Thread
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
 
 from src.collector import Collector
 from models import mysql_db

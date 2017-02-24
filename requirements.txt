@@ -3,3 +3,4 @@ pydash
 retrying
 requests
 PyMySQL
+python-dotenv
