@@ -2,7 +2,7 @@ from .base_model import BaseModel
 from peewee import CharField, IntegerField, DateTimeField, TextField
 
 class ProBuild(BaseModel):
-    matchId = IntegerField()
+    matchUrid = CharField()
     matchCreation = IntegerField()
     region = CharField()
     spell1Id = IntegerField()

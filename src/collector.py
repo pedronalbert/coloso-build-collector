@@ -109,7 +109,7 @@ class Collector():
     def saveProBuild(self, proBuild):
         self.logger.info('Guardando la Build en la base de datos...')
         query = ProBuild(
-            matchId = proBuild['matchId'],
+            matchUrid = URID.generate(self.region, proBuild['matchId']),
             matchCreation = proBuild['matchCreation'],
             region = self.region,
             spell1Id = proBuild['spell1Id'],
