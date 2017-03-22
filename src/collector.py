@@ -109,9 +109,9 @@ class Collector():
     def saveProBuild(self, proBuild):
         self.logger.info('Guardando la Build en la base de datos...')
         query = ProBuild(
-            matchUrid = URID.generate(self.region, proBuild['matchId']),
+            matchUrid = URID.generate(proBuild['region'], proBuild['matchId']),
             matchCreation = proBuild['matchCreation'],
-            region = self.region,
+            region = proBuild['region'],
             spell1Id = proBuild['spell1Id'],
             spell2Id = proBuild['spell2Id'],
             championId = proBuild['championId'],
@@ -143,7 +143,7 @@ class Collector():
         proBuild['matchId'] = matchData['matchId']
         proBuild['matchCreation'] = matchData['matchCreation']
         proBuild['proSummonerId'] = proSummoner.id
-        proBuild['region'] = self.region
+        proBuild['region'] = matchData['region']
         proBuild['spell1Id'] = participantData['spell1Id']
         proBuild['spell2Id'] = participantData['spell2Id']
         proBuild['championId'] = participantData['championId']
@@ -195,9 +195,11 @@ class Collector():
 
     @retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
     def getMatchData(self, match):
-        self.logger.info('Obteniendo datos para la partida #' + str(match['matchId']))
+        region = match['region']
 
-        url = 'https://' + self.region.lower() + '.api.pvp.net/api/lol/' + self.region.lower() + '/v2.2/match/' + str(match['matchId'])
+        self.logger.info('Obteniendo datos para la partida #' + region.upper() + '_' + str(match['matchId']))
+
+        url = 'https://' + self.region.lower() + '.api.pvp.net/api/lol/' + region.lower() + '/v2.2/match/' + str(match['matchId'])
         response = requests.get(url, params = { "api_key": API_KEY, "includeTimeline": True })
 
         if response.status_code == 200:
