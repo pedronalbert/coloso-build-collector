@@ -103,7 +103,7 @@ class Collector():
 
             raise RiotLimitError
         else:
-            self.logger.warning('Error en los servidroes de Riot')
+            self.logger.warning('Error en los servidroes de Riot CODE: ' + str(response.status_code))
             raise RiotServerError
 
     def saveProBuild(self, proBuild):
@@ -212,5 +212,5 @@ class Collector():
 
             raise RiotLimitError
         else:
-            self.logger.warning('Error en los servidores de Riot')
+            self.logger.warning('Error en los servidores de Riot CODE: ' + str(response.status_code))
             raise RiotServerError
