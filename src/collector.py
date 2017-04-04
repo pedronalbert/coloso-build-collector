@@ -104,7 +104,7 @@ class Collector():
 
             raise RiotLimitError
         else:
-            self.logger.warning('Fetch Error CODE: ' + str(response.status_code))
+            self.logger.warning('Fetch Error matchesList summoner #' + proSummoner.summonerUrid + ' CODE: ' + str(response.status_code))
             raise RiotServerError
 
     def saveProBuild(self, proBuild):
@@ -204,7 +204,7 @@ class Collector():
         response = requests.get(url, params = { "api_key": API_KEY, "includeTimeline": True })
 
         if response.status_code == 200:
-            self.logger.debug('Datos obtenidos correctamente')
+            self.logger.debug('Fetching Success')
             matchData = response.json()
 
             return matchData
@@ -215,5 +215,5 @@ class Collector():
 
             raise RiotLimitError
         else:
-            self.logger.warning('Fetch Error CODE: ' + str(response.status_code))
+            self.logger.warning('Fetch Error matchData #' + region.upper() + '_' + str(match['matchId']) + ' CODE: ' + str(response.status_code))
             raise RiotServerError
