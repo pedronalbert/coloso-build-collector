@@ -29,8 +29,6 @@ class Collector():
         return logger
 
     def start(self):
-        print('Iniciado collector region: ' + self.region)
-
         while True:
             proSummoners = ProSummoner.select().where(ProSummoner.summonerUrid.regexp(self.region))
 
@@ -38,7 +36,7 @@ class Collector():
                 self.logger.critical('No hay summoners en esta region')
                 return
 
-            self.logger.info('Iniciando recoleccion de builds')
+            self.logger.info('Collector Init')
             for proSummoner in proSummoners:
                 try:
                     matches = self.getMatchesList(proSummoner)
@@ -48,11 +46,14 @@ class Collector():
                             matchData = self.getMatchData(match)
 
                             if matchData['matchDuration'] < 600:
+                                self.updateSummonerLastCheckTime(proSummoner, matchData['matchCreation'])
                                 continue
 
                             proBuild = self.getProBuild(matchData, proSummoner)
+
                             if self.saveProBuild(proBuild):
                                 self.updateSummonerLastCheckTime(proSummoner, matchData['matchCreation'])
+
                             time.sleep(self.interval)
                         except Exception as e:
                             time.sleep(self.interval)
@@ -61,26 +62,26 @@ class Collector():
                     time.sleep(self.interval)
 
     def updateSummonerLastCheckTime(self, proSummoner, newTime):
-        self.logger.debug('Actualizando lastCheck del proSummoner #' + proSummoner.summonerUrid)
+        self.logger.debug('Updating lastCheck summoner #' + proSummoner.summonerUrid)
         proSummoner.lastCheck = newTime
         proSummoner.updated_at = datetime.utcnow()
 
         if proSummoner.save() > 0:
-            self.logger.debug('Tiempo actualizado correctamente')
+            self.logger.debug('Updating success')
         else:
-            self.logger.error('Error al actualizar el tiempo')
+            self.logger.error('Updating failed')
 
     @retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
     def getMatchesList(self, proSummoner):
         sumId = URID.getId(proSummoner.summonerUrid)
 
-        self.logger.info('Obteniendo lista de juegos para el proSummoner #' + proSummoner.summonerUrid)
+        self.logger.info('Fetching matches list summoner #' + proSummoner.summonerUrid)
 
         url = 'https://' + self.region.lower() + '.api.pvp.net/api/lol/' + self.region.lower() + '/v2.2/matchlist/by-summoner/' + str(sumId)
         response = requests.get(url, params = { "api_key": API_KEY, "beginTime": proSummoner.lastCheck + 1 })
 
         if response.status_code == 200:
-            self.logger.debug('Lista de juegos obtenida correctamente')
+            self.logger.debug('Fetching success')
             jsonResponse = response.json()
 
             if 'matches' in jsonResponse:
@@ -88,7 +89,7 @@ class Collector():
             else:
                 matches = []
 
-            self.logger.info(str(len(matches)) + ' Juegos encontrados para el invocador #' + proSummoner.summonerUrid)
+            self.logger.info(str(len(matches)) + ' Matches found summoner #' + proSummoner.summonerUrid)
             matches = _sort(matches, key = lambda m: m['timestamp'])
 
             return matches
@@ -98,16 +99,16 @@ class Collector():
             else:
                 retryAfter = self.interval
 
-            self.logger.warning('Limite de consultas alcanzado, repitiendo en: ' + str(retryAfter) + ' seconds')
+            self.logger.warning('Fetch limit reached, retry in ' + str(retryAfter) + ' seconds')
             time.sleep(retryAfter)
 
             raise RiotLimitError
         else:
-            self.logger.warning('Error en los servidroes de Riot CODE: ' + str(response.status_code))
+            self.logger.warning('Fetch Error CODE: ' + str(response.status_code))
             raise RiotServerError
 
     def saveProBuild(self, proBuild):
-        self.logger.info('Guardando la Build en la base de datos...')
+        self.logger.info('Storing build')
         query = ProBuild(
             matchUrid = URID.generate(proBuild['region'], proBuild['matchId']),
             matchCreation = proBuild['matchCreation'],
@@ -127,14 +128,14 @@ class Collector():
         )
 
         if query.save() > 0:
-            self.logger.debug('Build guardada correctamente')
+            self.logger.debug('Storing success')
             return True
         else:
-            self.logger.error('Error al guardar la build en la base de datos!')
+            self.logger.error('Storing failed')
             return False
 
     def getProBuild(self, matchData, proSummoner):
-        self.logger.debug('Realizando el parseo de la build')
+        self.logger.debug('Parsing build')
         summonerId = URID.getId(proSummoner.summonerUrid)
         proBuild = {}
         participantId = _find(matchData['participantIdentities'], lambda identity: identity['player']['summonerId'] == summonerId)['participantId']
@@ -197,9 +198,9 @@ class Collector():
     def getMatchData(self, match):
         region = match['region']
 
-        self.logger.info('Obteniendo datos para la partida #' + region.upper() + '_' + str(match['matchId']))
+        self.logger.info('Fetching match data match #' + region.upper() + '_' + str(match['matchId']))
 
-        url = 'https://' + self.region.lower() + '.api.pvp.net/api/lol/' + region.lower() + '/v2.2/match/' + str(match['matchId'])
+        url = 'https://' + region.lower() + '.api.pvp.net/api/lol/' + region.lower() + '/v2.2/match/' + str(match['matchId'])
         response = requests.get(url, params = { "api_key": API_KEY, "includeTimeline": True })
 
         if response.status_code == 200:
@@ -209,10 +210,10 @@ class Collector():
             return matchData
         elif response.status_code == 429:
             retryAfter = int(response.headers['retry-after']) + self.interval
-            self.logger.warning('Limite de consultas alcanzado, repitiendo en: ' + str(retryAfter) + ' seconds')
+            self.logger.warning('Fetch limit reached, retry in ' + str(retryAfter) + ' seconds')
             time.sleep(retryAfter)
 
             raise RiotLimitError
         else:
-            self.logger.warning('Error en los servidores de Riot CODE: ' + str(response.status_code))
+            self.logger.warning('Fetch Error CODE: ' + str(response.status_code))
             raise RiotServerError
