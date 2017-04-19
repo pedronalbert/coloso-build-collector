@@ -47,6 +47,7 @@ class Collector():
 
                             if matchData['matchDuration'] < 600:
                                 self.updateSummonerLastCheckTime(proSummoner, matchData['matchCreation'])
+                                time.sleep(self.interval)
                                 continue
 
                             proBuild = self.getProBuild(matchData, proSummoner)
@@ -58,7 +59,6 @@ class Collector():
                         except Exception as e:
                             time.sleep(self.interval)
                 except Exception as e:
-                    traceback.print_exc()
                     time.sleep(self.interval)
 
     def updateSummonerLastCheckTime(self, proSummoner, newTime):
