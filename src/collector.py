@@ -1,4 +1,4 @@
-import os, requests, time, traceback, json
+import os, requests, time, json
 from pydash.collections import find as _find
 from pydash.arrays import drop_right_while as _drop_right_while, sort as _sort
 from datetime import datetime
@@ -30,7 +30,7 @@ class Collector():
 
     def start(self):
         while True:
-            proSummoners = ProSummoner.select().where(ProSummoner.summonerUrid.regexp(self.region))
+            proSummoners = ProSummoner.select().where(ProSummoner.summonerId.regexp(self.region))
 
             if len(proSummoners) <= 0:
                 self.logger.critical('No hay summoners en esta region')
@@ -62,7 +62,7 @@ class Collector():
                     time.sleep(self.interval)
 
     def updateSummonerLastCheckTime(self, proSummoner, newTime):
-        self.logger.debug('Updating lastCheck summoner #' + proSummoner.summonerUrid)
+        self.logger.debug('Updating lastCheck summoner #' + proSummoner.summonerId)
         proSummoner.lastCheck = newTime
         proSummoner.updated_at = datetime.utcnow()
 
@@ -73,9 +73,9 @@ class Collector():
 
     @retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
     def getMatchesList(self, proSummoner):
-        sumId = URID.getId(proSummoner.summonerUrid)
+        sumId = URID.getId(proSummoner.summonerId)
 
-        self.logger.info('Fetching matches list summoner #' + proSummoner.summonerUrid)
+        self.logger.info('Fetching matches list summoner #' + proSummoner.summonerId)
 
         url = 'https://' + self.region.lower() + '.api.pvp.net/api/lol/' + self.region.lower() + '/v2.2/matchlist/by-summoner/' + str(sumId)
         response = requests.get(url, params = { "api_key": API_KEY, "beginTime": proSummoner.lastCheck + 1 })
@@ -89,7 +89,7 @@ class Collector():
             else:
                 matches = []
 
-            self.logger.info(str(len(matches)) + ' Matches found summoner #' + proSummoner.summonerUrid)
+            self.logger.info(str(len(matches)) + ' Matches found summoner #' + proSummoner.summonerId)
             matches = _sort(matches, key = lambda m: m['timestamp'])
 
             return matches
@@ -104,14 +104,17 @@ class Collector():
 
             raise RiotLimitError
         else:
-            self.logger.warning('Fetch Error matchesList summoner #' + proSummoner.summonerUrid + ' CODE: ' + str(response.status_code))
+            self.logger.warning('Fetch Error matchesList summoner #' + proSummoner.summonerId + ' CODE: ' + str(response.status_code))
             raise RiotServerError
 
     def saveProBuild(self, proBuild):
         self.logger.info('Storing build')
         query = ProBuild(
-            matchUrid = URID.generate(proBuild['region'], proBuild['matchId']),
+            matchId = URID.generate(proBuild['region'], proBuild['matchId']),
             matchCreation = proBuild['matchCreation'],
+            matchDuration = proBuild['matchDuration'],
+            season = proBuild['season'],
+            matchVersion = proBuild['matchVersion'],
             region = proBuild['region'],
             spell1Id = proBuild['spell1Id'],
             spell2Id = proBuild['spell2Id'],
@@ -136,13 +139,16 @@ class Collector():
 
     def getProBuild(self, matchData, proSummoner):
         self.logger.debug('Parsing build')
-        summonerId = URID.getId(proSummoner.summonerUrid)
+        summonerId = URID.getId(proSummoner.summonerId)
         proBuild = {}
         participantId = _find(matchData['participantIdentities'], lambda identity: identity['player']['summonerId'] == summonerId)['participantId']
         participantData = _find(matchData['participants'], lambda participant: participant['participantId'] == participantId)
 
         proBuild['matchId'] = matchData['matchId']
         proBuild['matchCreation'] = matchData['matchCreation']
+        proBuild['matchDuration'] = matchData['matchDuration']
+        proBuild['season'] = matchData['season']
+        proBuild['matchVersion'] = matchData['matchVersion']
         proBuild['proSummonerId'] = proSummoner.id
         proBuild['region'] = matchData['region']
         proBuild['spell1Id'] = participantData['spell1Id']
