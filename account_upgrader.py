@@ -24,7 +24,6 @@ def init():
             jsonResponse = response.json()
 
             proSummoner.accountId = jsonResponse["accountId"]
-            proSummoner.lastCheck = 1488090204024
 
             if proSummoner.save():
                 print("Summoner update success")

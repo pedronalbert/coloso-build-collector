@@ -1,15 +1,14 @@
-import os, requests, time, json
-from pydash.collections import find as _find
-from pydash.arrays import drop_right_while as _drop_right_while, sort as _sort
+import time, json
 from datetime import datetime
-from retrying import retry
-import logging
+import traceback
 
 from models import ProSummoner, ProBuild
-from errors import RiotLimitError, RiotServerError
-from utils import URID
-
-API_KEY = os.environ['RIOT_API_KEY']
+from errors import RiotLimitError
+from utils import getLogger
+from .get_matchs_list import getMatchsList
+from .get_match_data import getMatchData
+from .get_match_timeline import getMatchTimeline
+from .parse_pro_build import parseProBuild
 
 def riotRetryFilter(exception):
     return isinstance(exception, RiotLimitError)
@@ -18,15 +17,7 @@ class Collector():
     def __init__(self, region, interval, logLevel):
         self.region = region
         self.interval = interval
-        self.logger = self.getLogger()
-
-    def getLogger(self):
-        logger = logging.getLogger(self.region)
-        handler = logging.FileHandler('./logs/' + self.region + '.txt')
-        handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
-        logger.addHandler(handler)
-
-        return logger
+        self.logger = getLogger(region)
 
     def start(self):
         while True:
@@ -39,26 +30,36 @@ class Collector():
             self.logger.info('Collector Init')
             for proSummoner in proSummoners:
                 try:
-                    matches = self.getMatchesList(proSummoner)
+                    matches = getMatchsList(proSummoner)
                     time.sleep(self.interval)
                     for match in matches:
                         try:
-                            matchData = self.getMatchData(match)
+                            matchData = getMatchData(match, self.logger)
 
-                            if matchData['matchDuration'] < 600:
-                                self.updateSummonerLastCheckTime(proSummoner, matchData['matchCreation'])
+                            if matchData['gameDuration'] < 600:
+                                self.updateSummonerLastCheckTime(proSummoner, matchData['gameCreation'])
                                 time.sleep(self.interval)
                                 continue
 
-                            proBuild = self.getProBuild(matchData, proSummoner)
+                            try:
+                                timeLines = getMatchTimeline(matchData, self.logger)
+                            except RiotLimitError as e:
+                                time.sleep(e.retryAfter * 2)
+                                continue
+
+                            proBuild = parseProBuild(matchData, timeLines, proSummoner)
 
                             if self.saveProBuild(proBuild):
-                                self.updateSummonerLastCheckTime(proSummoner, matchData['matchCreation'])
+                                self.updateSummonerLastCheckTime(proSummoner, matchData['gameCreation'])
 
                             time.sleep(self.interval)
                         except Exception as e:
+                            self.logger.warning(e)
+                            traceback.print_exc()
                             time.sleep(self.interval)
                 except Exception as e:
+                    self.logger.warning(e)
+                    traceback.print_exc()
                     time.sleep(self.interval)
 
     def updateSummonerLastCheckTime(self, proSummoner, newTime):
@@ -67,55 +68,24 @@ class Collector():
         proSummoner.updated_at = datetime.utcnow()
 
         if proSummoner.save() > 0:
-            self.logger.debug('Updating success')
+            self.logger.debug('Update success')
         else:
-            self.logger.error('Updating failed')
-
-    @retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
-    def getMatchesList(self, proSummoner):
-        sumId = URID.getId(proSummoner.summonerId)
-
-        self.logger.info('Fetching matches list summoner #' + proSummoner.summonerId)
-
-        url = 'https://' + self.region.lower() + '.api.pvp.net/api/lol/' + self.region.lower() + '/v2.2/matchlist/by-summoner/' + str(sumId)
-        response = requests.get(url, params = { "api_key": API_KEY, "beginTime": proSummoner.lastCheck + 1 })
-
-        if response.status_code == 200:
-            self.logger.debug('Fetching success')
-            jsonResponse = response.json()
-
-            if 'matches' in jsonResponse:
-                matches = jsonResponse['matches']
-            else:
-                matches = []
-
-            self.logger.info(str(len(matches)) + ' Matches found summoner #' + proSummoner.summonerId)
-            matches = _sort(matches, key = lambda m: m['timestamp'])
-
-            return matches
-        elif response.status_code == 429:
-            if 'retry-after' in response.headers:
-                retryAfter = int(response.headers['retry-after']) + self.interval
-            else:
-                retryAfter = self.interval
-
-            self.logger.warning('Fetch limit reached, retry in ' + str(retryAfter) + ' seconds')
-            time.sleep(retryAfter)
-
-            raise RiotLimitError
-        else:
-            self.logger.warning('Fetch Error matchesList summoner #' + proSummoner.summonerId + ' CODE: ' + str(response.status_code))
-            raise RiotServerError
+            self.logger.error('Update failed')
 
     def saveProBuild(self, proBuild):
         self.logger.info('Storing build')
+
         query = ProBuild(
-            matchId = URID.generate(proBuild['region'], proBuild['matchId']),
-            matchCreation = proBuild['matchCreation'],
-            matchDuration = proBuild['matchDuration'],
-            season = proBuild['season'],
-            matchVersion = proBuild['matchVersion'],
-            region = proBuild['region'],
+            gameId = proBuild['gameId'],
+            seasonId = proBuild['seasonId'],
+            queueId = proBuild['queueId'],
+            gameVersion = proBuild['gameVersion'],
+            platformId = proBuild['platformId'],
+            gameMode = proBuild['gameMode'],
+            mapId = proBuild['mapId'],
+            gameType = proBuild['gameType'],
+            gameDuration = proBuild['gameDuration'],
+            gameCreation = proBuild['gameCreation'],
             spell1Id = proBuild['spell1Id'],
             spell2Id = proBuild['spell2Id'],
             championId = proBuild['championId'],
@@ -136,90 +106,3 @@ class Collector():
         else:
             self.logger.error('Storing failed')
             return False
-
-    def getProBuild(self, matchData, proSummoner):
-        self.logger.debug('Parsing build')
-        summonerId = URID.getId(proSummoner.summonerId)
-        proBuild = {}
-        participantId = _find(matchData['participantIdentities'], lambda identity: identity['player']['summonerId'] == summonerId)['participantId']
-        participantData = _find(matchData['participants'], lambda participant: participant['participantId'] == participantId)
-
-        proBuild['matchId'] = matchData['matchId']
-        proBuild['matchCreation'] = matchData['matchCreation']
-        proBuild['matchDuration'] = matchData['matchDuration']
-        proBuild['season'] = matchData['season']
-        proBuild['matchVersion'] = matchData['matchVersion']
-        proBuild['proSummonerId'] = proSummoner.id
-        proBuild['region'] = matchData['region']
-        proBuild['spell1Id'] = participantData['spell1Id']
-        proBuild['spell2Id'] = participantData['spell2Id']
-        proBuild['championId'] = participantData['championId']
-        proBuild['highestAchievedSeasonTier'] = participantData['highestAchievedSeasonTier']
-        proBuild['masteries'] = participantData['masteries']
-        proBuild['runes'] = participantData['runes']
-        proBuild['stats'] = participantData['stats']
-
-        frames = matchData['timeline']['frames']
-        frames = [frame for frame in frames if 'events' in frame]
-        events = []
-
-        for frame in frames:
-            for event in frame['events']:
-                if 'participantId' in event and event['participantId'] == participantId:
-                    events.append(event)
-
-        itemsOrder = []
-        skillsOrder = []
-
-        for event in events:
-            eventType = event['eventType']
-
-            if eventType == 'ITEM_PURCHASED':
-                itemsOrder.append({
-                    "itemId": event['itemId'],
-                    "timestamp": event['timestamp']
-                })
-
-            if eventType == 'ITEM_UNDO':
-                itemBefore = event['itemBefore']
-
-                _drop_right_while(itemsOrder, lambda item: item['itemId'] == itemBefore)
-
-            if eventType == 'ITEM_SOLD':
-                _drop_right_while(itemsOrder, lambda item: item['itemId'] == event['itemId'])
-
-            if eventType == 'SKILL_LEVEL_UP':
-                skillsOrder.append({
-                    "skillSlot": event['skillSlot'],
-                    "levelUpType": event['levelUpType'],
-                    "timestamp": event['timestamp'],
-                })
-
-        proBuild['itemsOrder'] = itemsOrder
-        proBuild['skillsOrder'] = skillsOrder
-
-        return proBuild
-
-    @retry(retry_on_exception = riotRetryFilter, stop_max_attempt_number = 3)
-    def getMatchData(self, match):
-        region = match['region']
-
-        self.logger.info('Fetching match data match #' + region.upper() + '_' + str(match['matchId']))
-
-        url = 'https://' + region.lower() + '.api.pvp.net/api/lol/' + region.lower() + '/v2.2/match/' + str(match['matchId'])
-        response = requests.get(url, params = { "api_key": API_KEY, "includeTimeline": True })
-
-        if response.status_code == 200:
-            self.logger.debug('Fetching Success')
-            matchData = response.json()
-
-            return matchData
-        elif response.status_code == 429:
-            retryAfter = int(response.headers['retry-after']) + self.interval
-            self.logger.warning('Fetch limit reached, retry in ' + str(retryAfter) + ' seconds')
-            time.sleep(retryAfter)
-
-            raise RiotLimitError
-        else:
-            self.logger.warning('Fetch Error matchData #' + region.upper() + '_' + str(match['matchId']) + ' CODE: ' + str(response.status_code))
-            raise RiotServerError

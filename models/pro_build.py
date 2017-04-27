@@ -2,12 +2,17 @@ from .base_model import BaseModel
 from peewee import CharField, IntegerField, DateTimeField, TextField
 
 class ProBuild(BaseModel):
-    matchId = CharField()
-    matchCreation = IntegerField()
+    gameId = CharField()
+    seasonId = IntegerField()
+    queueId = IntegerField()
+    gameVersion = CharField()
     matchDuration = IntegerField()
-    region = CharField()
-    season = CharField()
-    matchVersion = CharField()
+    platformId = CharField()
+    gameMode = CharField()
+    mapId = IntegerField()
+    gameType = CharField()
+    gameDuration = IntegerField()
+    gameCreation = IntegerField()
     spell1Id = IntegerField()
     spell2Id = IntegerField()
     championId = IntegerField()
