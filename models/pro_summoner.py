@@ -4,6 +4,7 @@ from peewee import IntegerField, DateTimeField, TextField
 class ProSummoner(BaseModel):
     id = IntegerField()
     summonerId = TextField()
+    accountId = TextField()
     lastCheck = IntegerField()
     pro_player_id = IntegerField()
     created_at = DateTimeField()
