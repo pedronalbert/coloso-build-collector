@@ -11,6 +11,9 @@ from src.parse_pro_build import parseProBuild
 mysql_db.connect()
 
 logging.basicConfig(level=logging.INFO)
+# Disable requests logging
+logging.getLogger("requests.packages.urllib3").propagate = False
+
 
 def createLogger():
     logger = logging.getLogger('pro_builds_updater')
@@ -21,7 +24,7 @@ def createLogger():
     handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
 
     chandler = colorlog.StreamHandler()
-    chandler.setFormatter(colorlog.ColoredFormatter('%(log_color)s%(levelname)s:%(name)s:%(message)s'))
+    chandler.setFormatter(colorlog.ColoredFormatter('%(log_color)s%(message)s'))
 
     logger.addHandler(handler)
     logger.addHandler(chandler)

@@ -19,7 +19,7 @@ def getLogger(region):
     handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
 
     chandler = colorlog.StreamHandler()
-    chandler.setFormatter(colorlog.ColoredFormatter('%(log_color)s%(levelname)s:%(name)s:%(message)s'))
+    chandler.setFormatter(colorlog.ColoredFormatter('%(log_color)s%(name)s\t| %(message)s'))
 
     logger.addHandler(handler)
     logger.addHandler(chandler)
