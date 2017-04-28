@@ -1,4 +1,4 @@
-import time, json
+import time, json, logging
 from datetime import datetime
 import traceback
 
@@ -10,11 +10,14 @@ from .get_match_data import getMatchData
 from .get_match_timeline import getMatchTimeline
 from .parse_pro_build import parseProBuild
 
+# Disable requests logging
+logging.getLogger("requests.packages.urllib3").propagate = False
+
 def riotRetryFilter(exception):
     return isinstance(exception, RiotLimitError)
 
 class Collector():
-    def __init__(self, region, interval, logLevel):
+    def __init__(self, region, interval):
         self.region = region
         self.interval = interval
         self.logger = getLogger(region)
@@ -24,13 +27,13 @@ class Collector():
             proSummoners = ProSummoner.select().where(ProSummoner.summonerId.regexp(self.region))
 
             if len(proSummoners) <= 0:
-                self.logger.critical('No hay summoners en esta region')
+                self.logger.critical('There is no summoners in this region')
                 return
 
             self.logger.info('Collector Init')
             for proSummoner in proSummoners:
                 try:
-                    matches = getMatchsList(proSummoner)
+                    matches = getMatchsList(proSummoner, self.logger)
                     time.sleep(self.interval)
                     for match in matches:
                         try:

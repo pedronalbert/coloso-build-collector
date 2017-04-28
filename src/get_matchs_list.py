@@ -2,11 +2,10 @@ import requests
 from pydash.arrays import sort
 
 from errors import RiotLimitError, RiotServerError
-from utils import URID, regionToPlatform, getLogger, API_KEY
+from utils import URID, regionToPlatform, API_KEY
 
-def getMatchsList(proSummoner):
+def getMatchsList(proSummoner, logger):
     region = URID.getRegion(proSummoner.summonerId)
-    logger = getLogger(region)
 
     logger.info('Fetching matchs list account #' + str(proSummoner.accountId))
 
@@ -35,4 +34,4 @@ def getMatchsList(proSummoner):
         raise RiotLimitError(retryAfter)
     else:
         logger.warning('Fetch failed CODE: ' + str(response.status_code))
-        raise RiotServerError
+        raise RiotServerError('RiotServerError CODE: ' + str(response.status_code))

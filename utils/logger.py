@@ -1,4 +1,7 @@
-import logging
+import logging, colorlog, os
+
+logLevel = os.environ['COLOSO_COLLECTOR_LOG_LEVEL']
+logging.basicConfig(level = getattr(logging, logLevel))
 
 loggers = {}
 
@@ -9,9 +12,17 @@ def getLogger(region):
         return loggers[region]
 
     logger = logging.getLogger(region)
+    logger.propagate = False
+
+    #configura handlers
     handler = logging.FileHandler('./logs/' + region + '.txt')
     handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+
+    chandler = colorlog.StreamHandler()
+    chandler.setFormatter(colorlog.ColoredFormatter('%(log_color)s%(levelname)s:%(name)s:%(message)s'))
+
     logger.addHandler(handler)
+    logger.addHandler(chandler)
 
     loggers[region] = logger
 

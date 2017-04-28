@@ -16,9 +16,9 @@ def getMatchTimeline(gameId, platformId, logger):
         return timeLines
     elif response.status_code == 429:
         retryAfter = int(response.headers['retry-after'])
-        logger.warning('Fetch limit reached, retry after ' + str(retryAfter) + ' seconds')
+        logger.warning('Fetch failed limit reached, retry after ' + str(retryAfter) + ' seconds')
 
         raise RiotLimitError(retryAfter)
     else:
-        logger.warning('Fetch faled CODE: ' + str(response.status_code))
-        raise RiotServerError
+        logger.warning('Fetch failed CODE: ' + str(response.status_code))
+        raise RiotServerError('RiotServerError CODE: ' + str(response.status_code))

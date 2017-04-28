@@ -1,6 +1,7 @@
+import logging, colorlog
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
-import logging
+
 from models import mysql_db, ProBuild, ProSummoner
 from utils import URID, regionToPlatform
 from src.get_match_data import getMatchData
@@ -11,9 +12,27 @@ mysql_db.connect()
 
 logging.basicConfig(level=logging.INFO)
 
+def createLogger():
+    logger = logging.getLogger('pro_builds_updater')
+    logger.propagate = False
+
+    #configura handlers
+    handler = logging.FileHandler('./logs/pro_builds_updater.txt')
+    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+
+    chandler = colorlog.StreamHandler()
+    chandler.setFormatter(colorlog.ColoredFormatter('%(log_color)s%(levelname)s:%(name)s:%(message)s'))
+
+    logger.addHandler(handler)
+    logger.addHandler(chandler)
+
+    return logger
+
 def init():
+    logger = createLogger()
+
     for proBuild in ProBuild.select().where(ProBuild.platformId == None).order_by(ProBuild.id.desc()):
-        logging.info('Init updater for proBuild #' + str(proBuild.id))
+        logger.info('Init updater for proBuild #' + str(proBuild.id))
 
         gameUrid = proBuild.gameId
         region = URID.getRegion(gameUrid)
@@ -21,10 +40,10 @@ def init():
         gameId = URID.getId(gameUrid)
 
         try:
-            matchData = getMatchData(gameId, platformId, logging)
-            matchTimeline = getMatchTimeline(gameId, platformId, logging)
+            matchData = getMatchData(gameId, platformId, logger)
+            matchTimeline = getMatchTimeline(gameId, platformId, logger)
             proSummoner = ProSummoner.get(ProSummoner.id == proBuild.pro_summoner_id)
-            parsedProBuild = parseProBuild(matchData, matchTimeline, proSummoner, logging)
+            parsedProBuild = parseProBuild(matchData, matchTimeline, proSummoner, logger)
 
             proBuild.seasonId = parsedProBuild['seasonId']
             proBuild.queueId = parsedProBuild['queueId']
@@ -36,9 +55,10 @@ def init():
             proBuild.gameMode = parsedProBuild['gameMode']
 
             if proBuild.save():
-                logging.info('ProBuild update success')
+                logger.info('ProBuild update success')
             else:
-                logging.info('ProBuild update failed')
+                logger.info('ProBuild update failed')
         except Exception as e:
-            logging.warning(e)
+            logger.warning(e)
+
 init()

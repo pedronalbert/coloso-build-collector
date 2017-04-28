@@ -4,7 +4,7 @@ from utils import API_KEY
 from errors import RiotLimitError, RiotServerError
 
 def getMatchData(gameId, platformId, logger):
-    logger.info('Fetching match data match #' + str(gameId))
+    logger.info('Fetching match data #' + str(gameId))
 
     url = 'https://{}.api.riotgames.com/lol/match/v3/matches/{}'.format(platformId, gameId)
     response = requests.get(url, params = { "api_key": API_KEY })
@@ -20,5 +20,5 @@ def getMatchData(gameId, platformId, logger):
 
         raise RiotLimitError(retryAfter)
     else:
-        logger.warning('Fetch failed  CODE: ' + str(response.status_code))
-        raise RiotServerError
+        logger.warning('Fetch failed CODE: ' + str(response.status_code))
+        raise RiotServerError('RiotServerError CODE: ' + str(response.status_code))

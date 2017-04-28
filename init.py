@@ -1,4 +1,4 @@
-import logging, os
+import os
 from threading import Thread
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
@@ -10,13 +10,10 @@ mysql_db.connect()
 
 regions = ['NA', 'EUW', 'BR', 'OCE', 'KR']
 
-logLevel = os.environ['COLOSO_COLLECTOR_LOG_LEVEL']
 interval = float(os.environ['COLOSO_COLLECTOR_INTERVAL_SECONDS'])
 
-logging.basicConfig(level = getattr(logging, logLevel))
-
 def initCollector(region):
-    collector = Collector(region, interval, logLevel)
+    collector = Collector(region, interval)
     collector.start()
 
 for region in regions:
