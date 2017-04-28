@@ -6,7 +6,6 @@ class ProBuild(BaseModel):
     seasonId = IntegerField()
     queueId = IntegerField()
     gameVersion = CharField()
-    matchDuration = IntegerField()
     platformId = CharField()
     gameMode = CharField()
     mapId = IntegerField()

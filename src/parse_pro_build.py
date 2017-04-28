@@ -1,15 +1,14 @@
 from pydash.collections import find
 from pydash.arrays import drop_right_while
 
-from utils import getLogger, URID, platformToRegion
+from utils import URID, platformToRegion
 
-def parseProBuild(matchData, timeLines, proSummoner):
+def parseProBuild(matchData, timeLines, proSummoner, logger):
     region = platformToRegion(matchData['platformId'])
-    logger = getLogger(URID.getRegion(proSummoner.summonerId))
 
     logger.debug('Parsing Pro Build')
     proBuild = {}
-    participantId = find(matchData['participantIdentities'], lambda identity: identity['player']['accountId'] == proSummoner.accountId)['participantId']
+    participantId = find(matchData['participantIdentities'], lambda identity: identity['player']['accountId'] == proSummoner.accountId or identity['player']['currentAccountId'] == proSummoner.accountId)['participantId']
     participantData = find(matchData['participants'], lambda participant: participant['participantId'] == participantId)
 
     proBuild['gameId'] = URID.generate(region, matchData['gameId'])

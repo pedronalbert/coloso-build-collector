@@ -3,10 +3,10 @@ import requests
 from utils import API_KEY
 from errors import RiotLimitError, RiotServerError
 
-def getMatchData(match, logger):
-    logger.info('Fetching match data match #' + str(match['gameId']))
+def getMatchData(gameId, platformId, logger):
+    logger.info('Fetching match data match #' + str(gameId))
 
-    url = 'https://{}.api.riotgames.com/lol/match/v3/matches/{}'.format(match['platformId'], match['gameId'])
+    url = 'https://{}.api.riotgames.com/lol/match/v3/matches/{}'.format(platformId, gameId)
     response = requests.get(url, params = { "api_key": API_KEY })
 
     if response.status_code == 200:

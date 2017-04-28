@@ -34,7 +34,7 @@ class Collector():
                     time.sleep(self.interval)
                     for match in matches:
                         try:
-                            matchData = getMatchData(match, self.logger)
+                            matchData = getMatchData(match['gameId'], match['platformId'], self.logger)
 
                             if matchData['gameDuration'] < 600:
                                 self.updateSummonerLastCheckTime(proSummoner, matchData['gameCreation'])
@@ -42,12 +42,12 @@ class Collector():
                                 continue
 
                             try:
-                                timeLines = getMatchTimeline(matchData, self.logger)
+                                timeLines = getMatchTimeline(matchData['gameId'], matchData['platformId'], self.logger)
                             except RiotLimitError as e:
                                 time.sleep(e.retryAfter * 2)
                                 continue
 
-                            proBuild = parseProBuild(matchData, timeLines, proSummoner)
+                            proBuild = parseProBuild(matchData, timeLines, proSummoner, self.logger)
 
                             if self.saveProBuild(proBuild):
                                 self.updateSummonerLastCheckTime(proSummoner, matchData['gameCreation'])
