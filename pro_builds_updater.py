@@ -1,4 +1,4 @@
-import logging, colorlog
+import logging, colorlog, time
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
@@ -61,6 +61,8 @@ def init():
                 logger.info('ProBuild update success')
             else:
                 logger.info('ProBuild update failed')
+
+            time.sleep(0.5)
         except Exception as e:
             logger.warning(e)
 
